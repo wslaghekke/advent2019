@@ -16,7 +16,11 @@
     "@turf/line-slice": "^5.1.5",
     "@turf/line-split": "^5.1.5",
     "@types/node": "^12.12.14",
+    "readline-sync": "^1.4.10",
     "ts-node": "^8.5.4",
     "typescript": "^3.7.3"
+  },
+  "devDependencies": {
+    "@types/readline-sync": "^1.4.3"
   }
 }
