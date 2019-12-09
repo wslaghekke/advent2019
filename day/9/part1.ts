@@ -6,8 +6,6 @@ export enum ParamMode {
     RELATIVE
 }
 
-
-
 function executeIntCode(program: number[], input: number[]) {
     let output = [];
 
@@ -42,12 +40,29 @@ function executeIntCode(program: number[], input: number[]) {
         }
     }
 
+    function writeValue(program: number[], paramMode: ParamMode, index: number, value: number) {
+        switch (paramMode) {
+            case ParamMode.POSITION:
+                const posIndex = program[index] === undefined ? 0 : program[index];
+                program[posIndex] = value;
+                break;
+            case ParamMode.IMMEDIATE:
+                return new Error('Can\'t write to immediate parameter');
+            case ParamMode.RELATIVE:
+                const relOffset = program[index] === undefined ? 0 : program[index];
+                program[relativeBase + relOffset] = value;
+                break;
+            default:
+                throw new Error('Unknown paramMode '+paramMode);
+        }
+    }
+
     function executeAddition(program: number[], paramModes: ParamMode[], index: number) {
         const a = getValue(program, paramModes[0], index + 1);
         const b = getValue(program, paramModes[1], index + 2);
 
         if (process.env.DEBUG) console.debug(`Addition ${a} + ${b}`);
-        program[program[index + 3]] = a + b;
+        writeValue(program, paramModes[2],index + 3, a + b);
 
         return index + 4;
     }
@@ -57,9 +72,25 @@ function executeIntCode(program: number[], input: number[]) {
         const b = getValue(program, paramModes[1], index + 2);
 
         if (process.env.DEBUG) console.debug(`Multiplication ${a} * ${b}`);
-        program[program[index + 3]] = a * b;
+        writeValue(program, paramModes[2],index + 3, a * b);
 
         return index + 4;
+    }
+
+    function executeInput(program: number[], paramModes: ParamMode[], index: number) {
+        const inputValue = input.shift();
+        if(inputValue === undefined) {
+            throw new Error('Missing input');
+        }
+        writeValue(program, paramModes[0],index + 1, inputValue);
+
+        return index + 2;
+    }
+
+    function executeOutput(program: number[], paramModes: ParamMode[], index: number) {
+        console.log(`Output: ${getValue(program, paramModes[0], index + 1)}`);
+        output.push(getValue(program, paramModes[0], index + 1));
+        return index + 2;
     }
 
     function executeJumpIfTrue(program: number[], paramModes: ParamMode[], index: number) {
@@ -85,7 +116,7 @@ function executeIntCode(program: number[], input: number[]) {
         const b = getValue(program, paramModes[1], index + 2);
 
         if (process.env.DEBUG) console.debug(`Less than ${a} < ${b}`);
-        program[program[index + 3]] = a < b ? 1 : 0;
+        writeValue(program, paramModes[2], index + 3, a < b ? 1 : 0);
 
         return index + 4;
     }
@@ -95,7 +126,7 @@ function executeIntCode(program: number[], input: number[]) {
         const b = getValue(program, paramModes[1], index + 2);
 
         if (process.env.DEBUG) console.debug(`Equals ${a} = ${b}`);
-        program[program[index + 3]] = a == b ? 1 : 0;
+        writeValue(program, paramModes[2], index + 3, a == b ? 1 : 0);
 
         return index + 4;
     }
@@ -118,17 +149,10 @@ function executeIntCode(program: number[], input: number[]) {
                 index = executeMultiplication(program, paramModes, index);
                 break;
             case 3: // Read integer
-                const inputValue = input.shift();
-                if(inputValue === undefined) {
-                    throw new Error('Missing input');
-                }
-                program[program[index + 1]] = inputValue;
-                index += 2;
+                index = executeInput(program, paramModes, index);
                 break;
             case 4: // Output integer
-                console.log(`Output: ${getValue(program, paramModes[0], index + 1)}`);
-                output.push(getValue(program, paramModes[0], index + 1));
-                index += 2;
+                index = executeOutput(program, paramModes, index);
                 break;
             case 5: // Jump if true
                 index = executeJumpIfTrue(program, paramModes, index);
@@ -161,7 +185,7 @@ const line = fs.readFileSync(__dirname + '/input.txt', {encoding: 'utf8'});
     console.log('Input:');
     console.log(line);
     const program = line.split(',').map(it => Number(it));
-    const output = await executeIntCode(program, [1]);
+    const output = await executeIntCode(program, [2]);
     console.log('Output:');
     console.log(output.join(','));
 })();
